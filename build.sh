@@ -36,7 +36,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 CONFIG="${1:-release}"
 STEP="${2:-app}"
-APP="build/Search.app"
+APP="build/Zahir proto1.app"
 NAME="Search"
 VERSION="$(tr -d '[:space:]' < VERSION)"
 # A build number that only ever goes up, so the updater can tell newer from
@@ -46,12 +46,37 @@ BUILD="$(date +%Y%m%d%H%M)"
 # older Mac is not handed a build it can't open.
 MINIMUM="14.0"
 
-swift build -c "$CONFIG"
+# The same installs can keep a 2023 include/swift/module.modulemap next to
+# the current bridging.modulemap, which defines SwiftBridging twice. Hide
+# the old one for these compiles only; nothing on disk outside .build changes.
+OVERLAY=()
+STALE="$(dirname "$(dirname "$(xcrun -f swiftc)")")/include/swift"
+if [ -f "$STALE/module.modulemap" ] && [ -f "$STALE/bridging.modulemap" ]; then
+  mkdir -p .build && : > .build/empty.modulemap
+  printf '{"version":0,"roots":[{"type":"directory","name":"%s","contents":[{"type":"file","name":"module.modulemap","external-contents":"%s"}]}]}' \
+    "$STALE" "$PWD/.build/empty.modulemap" > .build/overlay.yaml
+  OVERLAY=(-vfsoverlay .build/overlay.yaml -Xcc -ivfsoverlay -Xcc .build/overlay.yaml)
+fi
+
+# Some Command Line Tools installs ship a stale PackageDescription that can't
+# read this manifest; the package has no dependencies, so swiftc alone will do.
+if ! swift build -c "$CONFIG" 2>/dev/null; then
+  echo "swift build failed; compiling with swiftc directly" >&2
+  mkdir -p ".build/$CONFIG"
+  OPT="-Onone -g"; [ "$CONFIG" = release ] && OPT="-O -wmo"
+  swiftc $OPT ${OVERLAY[@]+"${OVERLAY[@]}"} -swift-version 5 -parse-as-library -target arm64-apple-macosx14.0 \
+    -module-name Search $(find Sources/Search -name "*.swift") -o ".build/$CONFIG/Search"
+fi
 BINARY=".build/$CONFIG/Search"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY" "$APP/Contents/MacOS/$NAME"
+# Zahir's demo pictures (see Zahir.swift) until there is a real backend.
+if [ -d Demo ]; then
+  mkdir -p "$APP/Contents/Resources/Zahir"
+  cp Demo/*.jpg "$APP/Contents/Resources/Zahir/"
+fi
 
 # Symbols stay out of the app. The linker leaves every function's name and a
 # map back to the source in the binary — 15,000 entries, more than half of
@@ -69,7 +94,7 @@ fi
 # to keep in step with anything.
 ICONSET="build/AppIcon.iconset"
 rm -rf "$ICONSET"
-swift Icon/icon.swift "$ICONSET" > /dev/null
+swift ${OVERLAY[@]+"${OVERLAY[@]}"} Icon/icon.swift "$ICONSET" > /dev/null
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
 
@@ -78,17 +103,17 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>$NAME</string>
-  <key>CFBundleDisplayName</key><string>$NAME</string>
+  <key>CFBundleName</key><string>Zahir proto1</string>
+  <key>CFBundleDisplayName</key><string>Zahir proto1</string>
   <key>CFBundleExecutable</key><string>$NAME</string>
-  <key>CFBundleIdentifier</key><string>com.officecommun.search</string>
+  <key>CFBundleIdentifier</key><string>hk.paradox.zahir-proto1</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>LSMinimumSystemVersion</key><string>$MINIMUM</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
-  <key>NSHumanReadableCopyright</key><string>© Office Commun · Search</string>
+  <key>NSHumanReadableCopyright</key><string>Zahir proto1 by Paradox Labs, a fork of Search by Office Commun (MIT)</string>
   <key>NSHighResolutionCapable</key><true/>
   <!-- Owning http and https is what lets macOS offer this app as the default
        browser, and what sends a link clicked in Mail here. -->

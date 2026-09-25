@@ -83,7 +83,7 @@ enum Store {
     static let folder: URL = {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let home = support.appendingPathComponent(world.map { "Search (\($0))" } ?? "Search", isDirectory: true)
+        let home = support.appendingPathComponent(world.map { "Zahir proto1 (\($0))" } ?? "Zahir proto1", isDirectory: true)
         if !testing {
             let old = support.appendingPathComponent("Office Browser", isDirectory: true)
             let files = FileManager.default

@@ -129,6 +129,8 @@ final class Updater: ObservableObject {
     private var clock: Timer?
 
     private func checkIfDue() {
+        // Zahir proto1 has no feed of its own yet; never ask Office Commun's.
+        guard Updater.overridden else { return }
         let last = Store.settings.object(forKey: lastKey) as? Date ?? .distantPast
         guard Updater.overridden || Date().timeIntervalSince(last) > 60 * 60 * 20 else { return }
         check { _ in }
