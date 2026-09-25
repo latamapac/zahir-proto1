@@ -21,7 +21,17 @@ struct Page: View {
             // before and after the float changes nothing SwiftUI can see, so
             // the stage was never told to take it back when it landed, and
             // the tab stayed empty. Nothing, then the page, is a change.
-            WebStage(page: tab.isBlank || tab.asleep || tab.floating ? nil : tab.web)
+            WebStage(page: tab.isBlank || tab.asleep || tab.floating || ZahirRoute(tab.address) != nil ? nil : tab.web)
+
+            if let route = ZahirRoute(tab.address) {
+                ZahirSurface(route: route)
+                    .transition(.opacity)
+            }
+
+            if tab.isBlank, !tab.floating {
+                ZahirHome()
+                    .transition(.opacity)
+            }
 
             if let cover = tab.cover {
                 // The page as it was left, while it is rebuilt underneath —

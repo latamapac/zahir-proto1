@@ -182,6 +182,8 @@ final class Browser: NSObject, ObservableObject {
     let floater = Float()
     /// True while the pointer is picking things to hide.
     @Published private(set) var veiling = false
+    /// Zahir: pointing at something to bring it in ("make ours"), see ZahirClip.swift.
+    @Published var clipping = false
     /// True while the list of what is hidden here is up.
     @Published var reviewing = false {
         didSet { if !reviewing { stopPeeking() } }
@@ -1424,6 +1426,10 @@ final class Browser: NSObject, ObservableObject {
     private func prepare(_ tab: Tab) {
         tab.delegate = self
         tab.onPick = { [weak self] tab, selector, label, note in
+            if self?.clipping == true {
+                self?.clip(tab, selector: selector, label: label)
+                return
+            }
             guard let self, let host = curtain.host(of: tab.address) else { return }
             curtain.hide(selector, label: label, note: note, on: host)
             let css = curtain.css(on: host)
@@ -1431,7 +1437,10 @@ final class Browser: NSObject, ObservableObject {
             tab.applyVeils(css)
             announce("Hidden — ⌘Z puts it back")
         }
-        tab.onPickEnd = { [weak self] _ in self?.veiling = false }
+        tab.onPickEnd = { [weak self] _ in
+            self?.veiling = false
+            self?.clipping = false
+        }
         tab.onImageMenu = { [weak self] tab, url in self?.showImageMenu(for: tab, at: url) }
         tab.onStoreAdd = { [weak self] tab in self?.addFromStore(tab) }
 
@@ -1542,7 +1551,7 @@ final class Browser: NSObject, ObservableObject {
 
     private func guess() {
         guard !summoning else {
-            offers = openPages(matching: typed)
+            offers = zahirPlaces(matching: typed, limit: typed.isEmpty ? 0 : 2) + openPages(matching: typed)
             ending = nil
             // The most recent page is already chosen, so ⌘K then Return is the
             // whole gesture.
@@ -1560,8 +1569,12 @@ final class Browser: NSObject, ObservableObject {
         // Three places and, if it can't be a place, a search. No open pages:
         // ⌘K exists for those, and mixing them in here made the list long
         // enough that reading it cost more than typing the address would have.
-        var list = history.suggestions(for: typed, limit: 3)
+        var list = zahirPlaces(matching: typed, limit: 2) + history.suggestions(for: typed, limit: 3)
         // Last in the list, and only when what was typed cannot be a place.
+        // Zahir: a sentence is first a request for Figaro, then a search.
+        if typed.contains(" "), Address.url(from: typed) == nil {
+            list.append(Suggestion(key: typed, title: "Ask Figaro", url: ZahirRoute.figaro.url, kind: .figaro))
+        }
         if !typed.isEmpty,
            Address.url(from: typed) == nil,
            let asked = searchURL(for: typed) {
@@ -1665,6 +1678,26 @@ final class Browser: NSObject, ObservableObject {
     /// finishing for you wins; otherwise what you actually typed. If none of
     /// those is a place, nothing happens and the field says so.
     func submit() {
+        // Zahir: its own places open in their own tab; a sentence picked as
+        // "Ask Figaro" goes to Figaro.
+        if let picked, offers.indices.contains(picked) {
+            let offer = offers[picked]
+            if offer.kind == .zahir, let route = ZahirRoute(offer.url) {
+                summoning = false
+                editing = false
+                typed = ""
+                openZahir(route)
+                return
+            }
+            if offer.kind == .figaro {
+                let words = offer.key
+                summoning = false
+                typed = ""
+                if active?.isBlank == false { editing = false }
+                Figaro.shared.take(words, on: active)
+                return
+            }
+        }
         // A page already open is switched to, not opened again.
         if let picked, offers.indices.contains(picked),
            let id = offers[picked].tab,
@@ -1698,7 +1731,16 @@ final class Browser: NSObject, ObservableObject {
         }
 
         guard let url = target else {
-            refusals += 1
+            // Zahir: words that are not a place are a request, and Figaro
+            // takes it. Only an empty field still shivers.
+            let words = typed.trimmingCharacters(in: .whitespaces)
+            guard !words.isEmpty else {
+                refusals += 1
+                return
+            }
+            Figaro.shared.take(words, on: active)
+            typed = ""
+            if active?.isBlank == false { editing = false }
             return
         }
         (active ?? tabs.first)?.go(to: url)

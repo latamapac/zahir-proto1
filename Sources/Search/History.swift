@@ -22,6 +22,10 @@ struct Suggestion: Identifiable, Equatable {
         case known
         /// Not a place at all — words, and an engine to ask.
         case search
+        /// Zahir: one of its own surfaces (the url is its zahir:// address).
+        case zahir
+        /// Zahir: words handed to Figaro instead of a search engine.
+        case figaro
     }
 
     var id: String { key }

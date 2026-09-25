@@ -158,6 +158,10 @@ final class Tab: ObservableObject, Identifiable {
     }
 
     private func adoptIcon() {
+        if let route = ZahirRoute(address) {
+            icon = NSImage(systemSymbolName: route.symbol, accessibilityDescription: route.title)
+            return
+        }
         guard let host = address?.host()?.lowercased() else { return }
         icon = Favicons.shared.cached(host)
     }
@@ -614,6 +618,11 @@ final class Tab: ObservableObject, Identifiable {
         picture = nil
         cover = nil
         adoptIcon()
+        // Zahir's own surfaces are drawn natively (see Zahir/ZahirRoute.swift).
+        if let route = ZahirRoute(url) {
+            title = route.title
+            return
+        }
         web.load(URLRequest(url: url))
     }
 
@@ -835,6 +844,7 @@ final class Tab: ObservableObject, Identifiable {
     func wake() -> Bool {
         guard let url = pending else { return false }
         pending = nil
+        if ZahirRoute(url) != nil { return true }
         failure = nil
         reading = 0
         lastY = 0

@@ -10,8 +10,13 @@ struct SearchApp: App {
     /// Links from other apps, and the Dock icon.
     @NSApplicationDelegateAdaptor(Links.self) private var links
 
+    init() {
+        // Zahir: render the surfaces to files and quit (see Snapshot).
+        if Snapshot.running { DispatchQueue.main.async { Snapshot.runIfAsked() } }
+    }
+
     var body: some Scene {
-        Window("Search", id: "browser") {
+        Window("Zahir proto1", id: "browser") {
             ContentView(browser: browser)
                 .frame(minWidth: 640, minHeight: 420)
         }
@@ -297,9 +302,14 @@ struct ContentView: View {
                 hint("Click anything to hide it   ⌘Z undo   esc done")
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+            if browser.clipping {
+                hint("Click anything to bring it into Zahir   esc cancel")
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .padding(.bottom, 30)
         .animation(Motion.settle, value: browser.veiling)
+        .animation(Motion.settle, value: browser.clipping)
         .animation(Motion.settle, value: browser.asking)
         .animation(Motion.settle, value: browser.offering)
     }
@@ -366,6 +376,8 @@ struct ContentView: View {
             .overlay(alignment: .leading) { Fold(browser: browser, prefs: browser.prefs) }
             .overlay(alignment: .bottom) { bars }
             .overlay { field }
+            // Zahir: Figaro over the page area (see Zahir.swift).
+            .overlay { FigaroLayer(browser: browser, leading: sidebar ? browser.prefs.sideWidth : 0, top: band) }
             .overlay { panels }
             .animation(Motion.settle, value: browser.fieldShowing)
             .background(WindowSetup { window = $0; dress($0) })
@@ -398,6 +410,7 @@ struct ContentView: View {
             .animation(Motion.settle, value: browser.managing)
             .animation(Motion.settle, value: browser.reviewing)
         .onAppear {
+            ZahirNav.browser = browser
             watchKeys()
             browser.askFocus()
             // Addresses from other apps have somewhere to go from here on.
@@ -649,6 +662,19 @@ struct ContentView: View {
 
         // Escape puts the page back. On a blank tab there is no page to put
         // back, so it belongs to whatever else wants it.
+        if event.keyCode == 53, Figaro.shared.showing {
+            Figaro.shared.close()
+            return true
+        }
+        if flags == [.command, .shift], key == "e" {
+            browser.toggleClipping()
+            return true
+        }
+        if flags == .command, key == "j" {
+            Figaro.shared.toggle(on: browser.active)
+            return true
+        }
+
         if event.keyCode == 53 {
             if browser.editingTab != nil {
                 browser.cancelTabEdit()
@@ -680,6 +706,10 @@ struct ContentView: View {
             }
             if browser.veiling {
                 browser.toggleHiding()
+                return true
+            }
+            if browser.clipping {
+                browser.toggleClipping()
                 return true
             }
             if browser.reviewing {

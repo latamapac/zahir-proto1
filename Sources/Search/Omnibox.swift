@@ -140,6 +140,12 @@ struct Omnibox: View {
                         .fill(Palette.ink.opacity(0.55))
                         .frame(width: 5, height: 5)
                         .padding(.horizontal, 2)
+                case .zahir:
+                    Image(systemName: ZahirRoute(offer.url)?.symbol ?? "square")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Palette.ink)
+                case .figaro:
+                    FigaroMark(size: 14)
                 default:
                     EmptyView()
                 }
@@ -269,7 +275,7 @@ struct AddressField: NSViewRepresentable {
         // SwiftUI picks its own colour for a placeholder, and on a pale ground
         // that colour was near-white.
         field.placeholderAttributedString = NSAttributedString(
-            string: "Enter a web address",
+            string: "Ask Figaro, or enter a web address",
             attributes: [
                 .font: NSFont.systemFont(ofSize: 15.5),
                 .foregroundColor: NSColor(Palette.ink.opacity(0.3)),

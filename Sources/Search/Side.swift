@@ -68,6 +68,9 @@ struct SideBar: View {
                 }
                 .frame(height: Metrics.strip)
 
+                // Zahir's places, above your pinned sites.
+                ZahirDock(browser: browser)
+
                 // The spaces side by side, as pages: two fingers sideways move
                 // the one on screen and the next one together, the next one
                 // coming in as this one goes, with nothing between them.
@@ -253,7 +256,7 @@ struct SideBar: View {
         let pinBlock = pinRows == 0 ? 0
             : CGFloat(pinRows) * pinHeight + CGFloat(pinRows - 1) * SideBar.pinGap + 10
         let loose = CGFloat(browser.tabs.count - pins) * (SideBar.row + SideBar.gap)
-        return Metrics.strip + pinBlock + loose + SideBar.row + 8
+        return Metrics.strip + ZahirDock.height + pinBlock + loose + SideBar.row + 8
     }
 
     // MARK: - the pinned squares

@@ -21,6 +21,7 @@ struct TabBar: View {
     @State private var plussed = false
     /// How wide the doors at the far end are, extension buttons included.
     @State private var doors: CGFloat = 0
+    @State private var zahirOpen = false
 
     var body: some View {
         // A GeometryReader is only here to measure the width. Its content is
@@ -142,6 +143,13 @@ struct TabBar: View {
                     // Back, forward, reload, and the bookmarks, at the far end
                     // of the row. The dropdown hangs from the last one.
                     HStack(spacing: Metrics.tabGap) {
+                        // Zahir's places, for this mode (the sidebar has them as a dock).
+                        Door(icon: "circle.grid.3x3", on: zahirOpen, help: "Zahir") { zahirOpen.toggle() }
+                            .popover(isPresented: $zahirOpen, arrowEdge: .bottom) {
+                                ZahirDock(browser: browser, launcher: true) { zahirOpen = false }
+                                    .padding(14)
+                                    .frame(width: 320)
+                            }
                         ExtensionSlot()
                         Helm(browser: browser)
                             .padding(.trailing, 8)
